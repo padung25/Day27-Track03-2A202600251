@@ -28,15 +28,34 @@ async def list_threads() -> None:
     async with db_conn() as conn:
         async with conn.execute(
             """
+            WITH grouped AS (
+                SELECT thread_id,
+                       pr_url,
+                       MIN(timestamp) AS started,
+                       MAX(timestamp) AS last_event,
+                       MAX(
+                           CASE risk_level
+                               WHEN 'high' THEN 3
+                               WHEN 'med' THEN 2
+                               ELSE 1
+                           END
+                       ) AS worst_risk_rank,
+                       COUNT(*) AS events
+                  FROM audit_events
+                 GROUP BY thread_id, pr_url
+            )
             SELECT thread_id,
                    pr_url,
-                   MIN(timestamp)        AS started,
-                   MAX(timestamp)        AS last_event,
-                   MAX(risk_level)       AS worst_risk,
-                   COUNT(*)              AS events
-              FROM audit_events
-             GROUP BY thread_id, pr_url
-             ORDER BY MAX(timestamp) DESC
+                   started,
+                   last_event,
+                   CASE worst_risk_rank
+                       WHEN 3 THEN 'high'
+                       WHEN 2 THEN 'med'
+                       ELSE 'low'
+                   END AS worst_risk,
+                   events
+              FROM grouped
+             ORDER BY last_event DESC
              LIMIT 25
             """
         ) as cur:

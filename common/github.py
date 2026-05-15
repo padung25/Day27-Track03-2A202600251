@@ -93,7 +93,7 @@ def fetch_pr(pr_url: str) -> PullRequest:
     )
 
 
-def post_review_comment(pr_url: str, body: str) -> None:
+def post_review_comment(pr_url: str, body: str, *, marker: str | None = None) -> str | None:
     """Post a top-level discussion comment back to the PR.
 
     Uses the Issues endpoint (PRs are issues under the hood for top-level
@@ -101,9 +101,29 @@ def post_review_comment(pr_url: str, body: str) -> None:
     instead — which requires collaborator status on the target repo.
 
     Takes the PR URL directly so callers don't need a `PullRequest` object.
+    When `marker` is provided, the call is idempotent: an existing comment
+    containing that marker is reused and its GitHub URL is returned.
     """
     owner, repo, number = parse_pr_url(pr_url)
     url = f"{API}/repos/{owner}/{repo}/issues/{number}/comments"
     with httpx.Client(timeout=30.0) as client:
+        if marker:
+            page = 1
+            while True:
+                resp = client.get(
+                    url,
+                    headers=_headers(),
+                    params={"per_page": 100, "page": page},
+                )
+                resp.raise_for_status()
+                comments = resp.json()
+                for comment in comments:
+                    if marker in comment.get("body", ""):
+                        return comment.get("html_url")
+                if len(comments) < 100:
+                    break
+                page += 1
+
         resp = client.post(url, headers=_headers(), json={"body": body})
         resp.raise_for_status()
+        return resp.json().get("html_url")

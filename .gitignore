@@ -1,6 +1,7 @@
-# Secrets — never commit
+# Secrets - never commit
 .env
-.env.local
+.env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -9,6 +10,11 @@ __pycache__/
 *.egg
 build/
 dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Virtualenv
 .venv/
@@ -24,6 +30,10 @@ Thumbs.db
 *.swp
 
 # Local audit DB exports / scratch
+hitl_audit.db
 *.sqlite
 *.db
 scratch/
+
+# Local submission/demo artifacts
+screenshots/
